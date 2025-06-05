@@ -4,7 +4,7 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackContext, Updater
 
 ## API токен бота та назва
-TOKEN: Final = '7824502490:AAEacrJ8XMEoxuky3l2rKkNZyT_q5wnXLbQ'
+TOKEN: Final = ''
 BOT_USERNAME = '@money_expenses_control_bot'
 
 ## Стартове повідомлення
