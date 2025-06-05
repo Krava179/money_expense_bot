@@ -32,7 +32,7 @@ async def show_main_menu(update: Update):
     await update.message.reply_text("✅ Головне меню:", reply_markup=reply_markup)
 
 ## Меню після додавання прибутку
-async def show_after_adding_profit_menu(update: Update):
+async def show_after_adding_profit_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["previous_menu"] = "after_adding_profit"
     keyboard = [
         [KeyboardButton("✅ Підтвердити")],
@@ -231,7 +231,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ Додано прибуток: {profit} грн")
             context.user_data["profit_sum"] = profit ## зберігання даних для виведення та зберігання в БД
             context.user_data["awaiting_profit_sum"] = False
-            await show_after_adding_profit_menu(update)
+            await show_after_adding_profit_menu(update, context)
         except ValueError:
             await update.message.reply_text("❌ Будь ласка, введіть коректне число!")
         return
@@ -299,7 +299,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if previous_menu == "after_adding_expense":
             await show_after_adding_expense_menu(update, context)
         elif previous_menu == "after_adding_profit":
-            await show_after_adding_profit_menu(update)
+            await show_after_adding_profit_menu(update, context)
         elif previous_menu == "statistics":
             await show_statistics_menu(update)
             context.user_data["previous_menu"] = "main_menu"
@@ -328,7 +328,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         ##
         context.user_data["selected_source"] = text ## зберігання даних для виведення та зберігання в БД
-        await show_after_adding_profit_menu(update)
+        await show_after_adding_profit_menu(update, context)
         return
 
 
@@ -337,7 +337,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "↩️ Повернутися":
             context.user_data["awaiting_date_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
             return
@@ -348,7 +348,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ Дата встановлена: {date}")
             context.user_data["awaiting_date_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
             return
@@ -359,7 +359,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ Дата встановлена: {date}")
             context.user_data["awaiting_date_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
             return
@@ -370,7 +370,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"✅ Дата встановлена: {text}")
             context.user_data["awaiting_date_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
         except ValueError:
@@ -384,7 +384,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "↩️ Повернутися":
             context.user_data["awaiting_comment_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
             return
@@ -395,7 +395,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("✅ Коментар додано!")
             context.user_data["awaiting_comment_input"] = False
             if context.user_data.get("current_mode") == "profit":
-                await show_after_adding_profit_menu(update)
+                await show_after_adding_profit_menu(update, context)
             else:
                 await show_after_adding_expense_menu(update, context)
         else:
