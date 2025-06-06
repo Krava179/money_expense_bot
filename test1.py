@@ -305,6 +305,21 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["previous_menu"] = "main_menu"
         elif previous_menu == "graphs_menu":
             await show_graphs_menu(update, context, all_sources=context.user_data.get("graph_all_sources", False))
+        elif previous_menu == "profit_statistics_period":
+            # Повертаємось до вибору періоду статистики прибутку
+            keyboard = [
+                [KeyboardButton("За весь період"), KeyboardButton("За рік")],
+                [KeyboardButton("За місяць"), KeyboardButton("За тиждень")],
+                [KeyboardButton("За сьогодні"), KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text(
+                "🗓️ Оберіть період для перегляду статистики прибутку:",
+                reply_markup=reply_markup
+            )
+            context.user_data["awaiting_period_input"] = True
+            return
+
         else:
             await show_main_menu(update)
         return
@@ -318,18 +333,22 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "📌 Джерело":
+        context.user_data["awaiting_source_selection"] = "profit"  # Мітка: вибір джерела для прибутку
         await show_sources_menu(update)
         return
 
     if text in ["Джерело 1", "Джерело 2", "Джерело 3", "Джерело 4", "Джерело 5", "Джерело 6", "Джерело 7",
                 "Не вказувати"]:
-        await update.message.reply_text(f"✅ Джерело обрано: {text}")
+        if context.user_data.get("awaiting_source_selection") == "profit":
+            await update.message.reply_text(f"✅ Джерело обрано: {text}")
+            context.user_data["selected_source"] = text
         ## Тут треба реалізувати SQL-запит 1
 
         ##
-        context.user_data["selected_source"] = text ## зберігання даних для виведення та зберігання в БД
-        await show_after_adding_profit_menu(update, context)
-        return
+            context.user_data["selected_source"] = text ## зберігання даних для виведення та зберігання в БД
+            await show_after_adding_profit_menu(update, context)
+            context.user_data.pop("awaiting_source_selection")  # Очищаємо мітку
+            return
 
 
     ## Введення та валідація дати для прибутку та витрат
@@ -558,38 +577,67 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["awaiting_period_input"] = True
         return
 
-    # Якщо користувач у режимі введення періоду
+    # ➡️ Обробка вибору періоду у Статистиці прибутку
     if context.user_data.get("awaiting_period_input"):
         if text == "↩️ Головне меню":
             context.user_data["awaiting_period_input"] = False
             await show_main_menu(update)
             return
 
-        # Валідація: має бути формат dd/mm/yyyy:dd/mm/yyyy
-        try:
-            period_parts = text.split(":")
-            if len(period_parts) == 2:
-                datetime.strptime(period_parts[0], "%d/%m/%Y")
-                datetime.strptime(period_parts[1], "%d/%m/%Y")
-                context.user_data["selected_period"] = text
-                context.user_data["awaiting_period_input"] = False
-                await update.message.reply_text("✅ Період встановлено!")
+        # Обробка вибору "За рік", "За місяць", "За тиждень", "За сьогодні"
+        now = datetime.now()
+        if text == "За рік":
+            start_date = (now - timedelta(days=365)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📈 Статистика прибутку за рік (з {start_date} по {end_date})")
+            # 🔴 Місце для SQL-запиту (наприклад, SQL SELECT за цей період)
+        elif text == "За місяць":
+            start_date = (now - timedelta(days=30)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📈 Статистика прибутку за місяць (з {start_date} по {end_date})")
+            # 🔴 Місце для SQL-запиту
+        elif text == "За тиждень":
+            start_date = (now - timedelta(days=7)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📈 Статистика прибутку за тиждень (з {start_date} по {end_date})")
+            # 🔴 Місце для SQL-запиту
+        elif text == "За сьогодні":
+            date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📈 Статистика прибутку за сьогодні: {date}")
+            # 🔴 Місце для SQL-запиту
+        elif text == "За весь період":
+            await update.message.reply_text("📈 Статистика прибутку за весь період")
+            # 🔴 Місце для SQL-запиту (усі записи)
+        elif ":" in text:  # введено власний період
+            try:
+                start_str, end_str = text.split(":")
+                start_date = datetime.strptime(start_str.strip(), "%d/%m/%Y")
+                end_date = datetime.strptime(end_str.strip(), "%d/%m/%Y")
+                if start_date > end_date:
+                    await update.message.reply_text("❌ Початкова дата не може бути пізнішою за кінцеву!")
+                    return
+                await update.message.reply_text(f"📈 Статистика прибутку за період: {start_str} — {end_str}")
+                # 🔴 Місце для SQL-запиту
+            except ValueError:
+                await update.message.reply_text("❌ Неправильний формат! Введіть у форматі dd/mm/yyyy:dd/mm/yyyy")
+                return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
+            return
 
-                # Після успішної валідації показуємо меню «За всіма джерелами» / «Обрати джерело»
-                keyboard = [
-                    [KeyboardButton("За усіма джерелами")],
-                    [KeyboardButton("Обрати джерело")],
-                    [KeyboardButton("↩️ Повернутися")],
-                    [KeyboardButton("↩️ Головне меню")]
-                ]
-                reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-                await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
-            else:
-                raise ValueError  # щоб спрацював except
-        except ValueError:
-            await update.message.reply_text(
-                "❌ Неправильний формат. Введіть у форматі dd/mm/yyyy:dd/mm/yyyy, наприклад: 01/01/2024:31/12/2024"
-            )
+        # Після відображення статистики – показуємо наступне меню
+        keyboard = [
+            [KeyboardButton("За усіма джерелами")],
+            [KeyboardButton("Обрати джерело")],
+            [KeyboardButton("↩️ Повернутися")],
+            [KeyboardButton("↩️ Головне меню")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+
+        # Встановлюємо прапорець, щоб знати, куди повертатися
+        context.user_data["previous_menu"] = "profit_statistics_period"
+        context.user_data["awaiting_period_input"] = False
         return
 
     if text == "За усіма джерелами":
@@ -598,8 +646,53 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["previous_menu"] = "statistics"
         return
 
+    # ➡️ Обробка вибору графіків (усі джерела)
+    if context.user_data.get("previous_menu") == "graphs_menu" and context.user_data.get("graph_all_sources"):
+        if text == "Pie Chart":
+            # 🔴 Місце для генерації / SQL графіка "Pie Chart"
+            await update.message.reply_text("✅ Ви обрали графік: Pie Chart")
+            # ТУТ: Інтеграція побудови графіка
+            await update.message.reply_text("📊 Графік Pie Chart готовий! (інтегрується пізніше)")
+        elif text == "Bars":
+            # 🔴 Місце для генерації / SQL графіка "Bars"
+            await update.message.reply_text("✅ Ви обрали графік: Bars")
+            # ТУТ: Інтеграція побудови графіка
+            await update.message.reply_text("📊 Графік Bars готовий! (інтегрується пізніше)")
+        elif text == "Scatter Plot":
+            # 🔴 Місце для генерації / SQL графіка "Scatter Plot"
+            await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
+            # ТУТ: Інтеграція побудови графіка
+            await update.message.reply_text("📊 Графік Scatter Plot готовий! (інтегрується пізніше)")
+        elif text == "↩️ Повернутися":
+            # Повертаємось до вибору "За усіма джерелами" / "Обрати джерело"
+            keyboard = [
+                [KeyboardButton("За усіма джерелами")],
+                [KeyboardButton("Обрати джерело")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "profit_statistics_period"
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
+            return
+
+        # ✅ Після відображення графіка – виводимо підсумкову статистику (можеш замінити текст на результат SQL)
+        await update.message.reply_text("📈 Підсумкова статистика: (сюди пізніше підключається SQL)")
+
+        # ✅ Після цього повертаємо користувача у головне меню
+        await show_main_menu(update)
+        return
+
+    # ➡️ Обробка кнопки "Обрати джерело"
     if text == "Обрати джерело":
-        context.user_data["graph_all_sources"] = False
+        # Тут буде SQL-запит №1 (отримати джерела, наприклад 1-7)
+        # Зараз заглушка - кнопки для джерел:
         keyboard = [
             [KeyboardButton("Джерело 1"), KeyboardButton("Джерело 2")],
             [KeyboardButton("Джерело 3"), KeyboardButton("Джерело 4")],
@@ -609,8 +702,86 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [KeyboardButton("↩️ Головне меню")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-        await update.message.reply_text("Оберіть джерело:", reply_markup=reply_markup)
-        context.user_data["previous_menu"] = "statistics"
+        await update.message.reply_text("🔎 Оберіть джерело:", reply_markup=reply_markup)
+        context.user_data["previous_menu"] = "choose_source"
+        return
+
+    # ➡️ Обробка вибору конкретного джерела
+    if context.user_data.get("previous_menu") == "choose_source":
+        if text.startswith("Джерело") or text == "Не вказано":
+            await update.message.reply_text(f"✅ Джерело обрано: {text}")
+            # Тут буде SQL-запит №9 (записи по конкретному джерелу)
+            # Заглушка — повідомлення
+            await update.message.reply_text("📊 Дані за обраним джерелом отримано! (інтегрується пізніше)")
+
+            # Показуємо кнопки для графіків (без Pie Chart)
+            keyboard = [
+                [KeyboardButton("Bars")],
+                [KeyboardButton("Scatter Plot")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("📊 Оберіть графік для перегляду:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "graphs_menu_choose_source"
+            return
+        elif text == "↩️ Повернутися":
+            # Повертаємось до вибору "За усіма джерелами" / "Обрати джерело"
+            keyboard = [
+                [KeyboardButton("За усіма джерелами")],
+                [KeyboardButton("Обрати джерело")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "profit_statistics_period"
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть джерело зі списку!")
+            return
+
+    # ➡️ Обробка вибору графіка (для обраного джерела)
+    if context.user_data.get("previous_menu") == "graphs_menu_choose_source":
+        if text == "Bars":
+            # 🔴 Місце для генерації / SQL-запиту "Bars" для конкретного джерела
+            await update.message.reply_text("✅ Ви обрали графік: Bars")
+            # ТУТ: інтеграція побудови графіка
+            await update.message.reply_text("📊 Графік Bars готовий! (інтегрується пізніше)")
+        elif text == "Scatter Plot":
+            # 🔴 Місце для генерації / SQL-запиту "Scatter Plot" для конкретного джерела
+            await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
+            # ТУТ: інтеграція побудови графіка
+            await update.message.reply_text("📊 Графік Scatter Plot готовий! (інтегрується пізніше)")
+        elif text == "↩️ Повернутися":
+            # Повертаємось до вибору джерела
+            keyboard = [
+                [KeyboardButton("Джерело 1"), KeyboardButton("Джерело 2")],
+                [KeyboardButton("Джерело 3"), KeyboardButton("Джерело 4")],
+                [KeyboardButton("Джерело 5"), KeyboardButton("Джерело 6")],
+                [KeyboardButton("Джерело 7"), KeyboardButton("Не вказано")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔎 Оберіть джерело:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "choose_source"
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть графік зі списку!")
+            return
+
+        # ✅ Після відображення графіка – виводимо підсумкову статистику
+        await update.message.reply_text("📈 Підсумкова статистика: (сюди пізніше підключається SQL)")
+
+        # ✅ Повертаємо користувача у головне меню
+        await show_main_menu(update)
         return
 
 
