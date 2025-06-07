@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 ## API токен бота та назва
 TOKEN: Final = ''
-BOT_USERNAME = '@banderaounbot'
+BOT_USERNAME = ''
 
 ## Стартове повідомлення
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
