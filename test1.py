@@ -4,7 +4,7 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackContext, Updater
 
 ## API токен бота та назва
-TOKEN: Final = '1141277490:AAGfVQyF1aUR5EWxkTNtX5CHLK8xksxMbfk'
+TOKEN: Final = ''
 BOT_USERNAME = '@banderaounbot'
 
 ## Стартове повідомлення
