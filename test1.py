@@ -4,8 +4,8 @@ from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackContext, Updater
 
 ## API токен бота та назва
-TOKEN: Final = ''
-BOT_USERNAME = '@'
+TOKEN: Final = '1141277490:AAGfVQyF1aUR5EWxkTNtX5CHLK8xksxMbfk'
+BOT_USERNAME = '@banderaounbot'
 
 ## Стартове повідомлення
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -19,7 +19,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ## Коли користувач натискає "Початок роботи"
 async def handle_start_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text == "🚀 Початок роботи":
-        await show_main_menu(update)
+        await show_main_menu(update, context)
 
 ## Головне меню
 async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -295,6 +295,55 @@ async def show_limit_details(update: Update, context: ContextTypes.DEFAULT_TYPE,
         "🛠️ Що бажаєте зробити з лімітом?",
         reply_markup=reply_markup
     )
+
+async def handle_new_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Підготовка під SQL-запит для перевірки кількості лімітів
+    # 🔴 SQL-запит №13 (поки лишаємо місце)
+    user_id = update.effective_user.id
+    # кількість_лімітів = db.get_user_limits_count(user_id) # заглушка
+
+    # Заглушка для тесту (наприклад)
+    limits_count = 5  # заміни це на реальний запит
+
+    if limits_count >= 8:
+        await update.message.reply_text(
+            "❗ Ви вже маєте 8 лімітів. Спочатку видаліть один з них, щоб додати новий."
+        )
+        await show_user_limits_menu(update, context)
+        context.user_data["previous_menu"] = "limits_menu"
+        return
+
+    # Якщо все гаразд – запитуємо суму
+    await update.message.reply_text(
+        "💬 Впишіть суму для встановлення загального ліміту на всі витрати або спочатку оберіть конкретну категорію",
+        reply_markup=ReplyKeyboardMarkup(
+            [
+                [KeyboardButton("За категорією")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ],
+            resize_keyboard=True
+        )
+    )
+    context.user_data["awaiting_limit_sum"] = True
+    context.user_data["previous_menu"] = "new_limit"
+
+async def show_user_limits_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 🔴 Тут буде SQL-запит №13 для отримання лімітів
+    # limits = db.get_user_limits(user_id)  # заглушка
+    limits = ["Ліміт 1", "Ліміт 2", "Ліміт 3"]  # заглушка
+
+    keyboard = [[KeyboardButton(limit)] for limit in limits]
+    keyboard.append([KeyboardButton("↩️ Повернутися")])
+    keyboard.append([KeyboardButton("↩️ Головне меню")])
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+    await update.message.reply_text(
+        "📋 Ваші ліміти:",
+        reply_markup=reply_markup
+    )
+    context.user_data["previous_menu"] = "limits_menu"
+
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -1092,6 +1141,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ✅ Після відображення графіка — повертаємо користувача у головне меню
         await update.message.reply_text("🔄 Повертаємося у головне меню...")
+        context.user_data["previous_menu"] = "main_menu"
         await show_main_menu(update, context)
         return
 
@@ -1184,16 +1234,19 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "Pie Chart":
             await update.message.reply_text("✅ Ви обрали графік: Pie Chart")
             await update.message.reply_text("📊 Графік Pie Chart готовий! (сюди підключається SQL-запит)")
+            context.user_data["previous_menu"] = "main_menu"
             await show_main_menu(update, context)
             return
         elif text == "Bars":
             await update.message.reply_text("✅ Ви обрали графік: Bars")
             await update.message.reply_text("📊 Графік Bars готовий! (сюди підключається SQL-запит)")
+            context.user_data["previous_menu"] = "main_menu"
             await show_main_menu(update, context)
             return
         elif text == "Scatter Plot":
             await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
             await update.message.reply_text("📊 Графік Scatter Plot готовий! (сюди підключається SQL-запит)")
+            context.user_data["previous_menu"] = "main_menu"
             await show_main_menu(update, context)
             return
         elif text == "Обрати підкатегорію":
@@ -1221,11 +1274,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if text == "Bars":
             await update.message.reply_text("✅ Ви обрали графік: Bars")
             await update.message.reply_text("📊 Графік Bars готовий! (сюди підключається SQL-запит)")
+            context.user_data["previous_menu"] = "main_menu"
             await show_main_menu(update, context)
             return
         elif text == "Scatter Plot":
             await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
             await update.message.reply_text("📊 Графік Scatter Plot готовий! (сюди підключається SQL-запит)")
+            context.user_data["previous_menu"] = "main_menu"
             await show_main_menu(update, context)
             return
         elif text == "↩️ Повернутися":
@@ -1274,6 +1329,116 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif text == "↩️ Головне меню":
             await show_main_menu(update, context)
             return
+
+    if text == "Новий ліміт":
+        await handle_new_limit(update, context)
+        return
+
+    if context.user_data.get("awaiting_limit_sum"):
+        if text == "↩️ Повернутися":
+            context.user_data.pop("awaiting_limit_sum")
+            await show_user_limits_menu(update, context)
+            context.user_data["previous_menu"] = "limits_menu"
+            return
+        elif text == "↩️ Головне меню":
+            context.user_data.pop("awaiting_limit_sum")
+            await show_main_menu(update, context)
+            return
+        elif text == "За категорією":
+            # Перехід до вибору категорії (прикладний виклик твоєї функції)
+            context.user_data.pop("awaiting_limit_sum", None)
+            await show_categories_menu(update)
+            context.user_data["previous_menu"] = "new_limit_category"
+            return
+        else:
+            try:
+                limit_sum = float(text)
+                # 🔴 SQL-запит №14 – створення ліміту з сумою
+                await update.message.reply_text(
+                    f"✅ Ліміт встановлено: {limit_sum} грн. Ви можете налаштувати категорію пізніше."
+                )
+                await show_user_limits_menu(update, context)
+                context.user_data.pop("awaiting_limit_sum")
+                return
+            except ValueError:
+                await update.message.reply_text("❌ Будь ласка, введіть коректне число!")
+                return
+
+    if text == "За категорією":
+        # 🔴 SQL-запит №3 (отримуємо категорії користувача)
+        categories = ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                      "Категорія 7", "Не вказано"]
+        keyboard = [[KeyboardButton(cat)] for cat in categories]
+        keyboard.append([KeyboardButton("Повернутися"), KeyboardButton("Головне меню")])
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("🗂️ Оберіть категорію:", reply_markup=reply_markup)
+        context.user_data["previous_menu"] = "new_limit_category"
+        return
+
+    if context.user_data.get("previous_menu") == "new_limit_category":
+        if text in ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                    "Категорія 7", "Не вказано"]:
+            context.user_data["selected_limit_category"] = text
+            await update.message.reply_text(
+                f"✅ Категорія обрана: {text}\n\nВведіть суму ліміту або оберіть підкатегорію.",
+                reply_markup=ReplyKeyboardMarkup([
+                    [KeyboardButton("За підкатегорією")],
+                    [KeyboardButton("Повернутися")],
+                    [KeyboardButton("Головне меню")]
+                ], resize_keyboard=True)
+            )
+            context.user_data["previous_menu"] = "new_limit_selected_category"
+            return
+        elif text == "Повернутися":
+            # Повертаємося у меню "Новий ліміт"
+            await handle_new_limit(update, context)
+            return
+        elif text == "Головне меню":
+            await show_main_menu(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
+            return
+
+    if context.user_data.get("previous_menu") == "new_limit_selected_category":
+        if text == "Повернутися":
+            # Повернення до вибору категорії
+            categories = ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                          "Категорія 7", "Не вказано"]
+            keyboard = [[KeyboardButton(cat)] for cat in categories]
+            keyboard.append([KeyboardButton("Повернутися"), KeyboardButton("Головне меню")])
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🗂️ Оберіть категорію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "new_limit_category"
+            return
+        elif text == "Головне меню":
+            await show_main_menu(update, context)
+            return
+        elif text == "За підкатегорією":
+            # 🔴 SQL: отримати підкатегорії для обраної категорії
+            subcategories = ["Підкатегорія 1", "Підкатегорія 2", "Підкатегорія 3", "Підкатегорія 4", "Підкатегорія 5",
+                             "Не вказано"]
+            keyboard = [[KeyboardButton(sub)] for sub in subcategories]
+            keyboard.append([KeyboardButton("Повернутися"), KeyboardButton("Головне меню")])
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("📂 Оберіть підкатегорію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "new_limit_subcategory"
+            return
+        else:
+            # Користувач вводить СУМУ ліміту для обраної категорії
+            try:
+                limit_sum = float(text)
+                # 🔴 SQL-запит №14 (зберігаємо ліміт для категорії)
+                await update.message.reply_text(
+                    f"✅ Ліміт для категорії '{context.user_data.get('selected_limit_category', 'Не вказано')}' встановлено: {limit_sum} грн."
+                )
+                await show_user_limits_menu(update, context)
+                context.user_data.pop("previous_menu")
+                context.user_data.pop("selected_limit_category")
+                return
+            except ValueError:
+                await update.message.reply_text("❌ Будь ласка, введіть коректне число або оберіть підкатегорію!")
+                return
 
 
 # ➡️ Обробка помилок
