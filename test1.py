@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 ## API токен бота та назва
 TOKEN: Final = ''
-BOT_USERNAME = '@money_expenses_control_bot'
+BOT_USERNAME = '@'
 
 ## Стартове повідомлення
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -22,7 +22,20 @@ async def handle_start_button(update: Update, context: ContextTypes.DEFAULT_TYPE
         await show_main_menu(update)
 
 ## Головне меню
-async def show_main_menu(update: Update):
+async def show_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keys_to_clear = [   ## Вирішення проблеми з прапорцями
+        "awaiting_period_input",
+        "awaiting_expense_period_input",
+        "awaiting_comment_input",
+        "awaiting_expense_sum",
+        "awaiting_profit_sum",
+        "awaiting_date_input",
+        "awaiting_source_selection",
+        "awaiting_category_input",
+        "awaiting_subcategory_input"
+    ]
+    for key in keys_to_clear:
+        context.user_data.pop(key, None)
     keyboard = [
         [KeyboardButton("➕ Додати прибуток"), KeyboardButton("📈 Перегляд прибутку"), KeyboardButton("📊 Статистика")],
         [KeyboardButton("➕ Додати витрату"), KeyboardButton("📉 Перегляд витрат"), KeyboardButton("🔢 Ліміти")],
@@ -131,6 +144,25 @@ async def show_subcategories_menu(update: Update):
         reply_markup=reply_markup
     )
 
+async def show_expense_subcategories_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 🔴 Тут буде SQL-запит, щоб отримати підкатегорії для вибраної категорії
+    # Наприклад: підтягуємо список з БД: subcategories = get_subcategories(category_id)
+
+    # Заглушка-кнопки для тесту
+    keyboard = [
+        [KeyboardButton("Підкатегорія 1"), KeyboardButton("Підкатегорія 2")],
+        [KeyboardButton("Підкатегорія 3"), KeyboardButton("Підкатегорія 4")],
+        [KeyboardButton("Підкатегорія 5"), KeyboardButton("Підкатегорія 6")],
+        [KeyboardButton("Підкатегорія 7"), KeyboardButton("Не вказано")],
+        [KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(
+        "📂 Оберіть підкатегорію витрати:",
+        reply_markup=reply_markup
+    )
+    context.user_data["previous_menu"] = "choose_expense_subcategory"
+
 ## Вивід меню після натискання "Дата" (додавання витрати)
 async def show_expense_date_menu(update: Update):
     keyboard = [
@@ -217,6 +249,53 @@ async def show_graphs_menu(update: Update, context: ContextTypes.DEFAULT_TYPE, a
         reply_markup=reply_markup
     )
 
+async def show_limits_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [KeyboardButton("Мої ліміти")],
+        [KeyboardButton("Новий ліміт")],
+        [KeyboardButton("↩️ Головне меню")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text("🔒 Меню лімітів:", reply_markup=reply_markup)
+    context.user_data["previous_menu"] = "limits_list"
+
+
+async def show_user_limits_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # 🔴 ПІД SQL: Отримати список лімітів користувача
+    # limits = get_user_limits(user_id)
+    limits = ["Ліміт 1", "Ліміт 2", "Ліміт 3"]  # Заглушка
+
+    keyboard = [[KeyboardButton(limit)] for limit in limits]
+    keyboard.append([KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")])
+
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    await update.message.reply_text(
+        "📝 Оберіть ліміт для перегляду:",
+        reply_markup=reply_markup
+    )
+    context.user_data["previous_menu"] = "limits_menu"
+
+async def show_limit_details(update: Update, context: ContextTypes.DEFAULT_TYPE, limit_name: str):
+    # 🔴 ПІД SQL (запит №15): Отримати деталі ліміту за назвою limit_name
+    # details = get_limit_details(limit_name)
+    details = "Сума: 1000 грн\nКатегорія: Категорія 1\nПідкатегорія: Підкатегорія 2\nПеріод: Місяць"  # Заглушка
+
+    await update.message.reply_text(
+        f"ℹ️ Інформація про ліміт:\n\n{details}"
+    )
+
+    keyboard = [
+        [KeyboardButton("❌ Видалити")],
+        [KeyboardButton("↩️ Повернутися")],
+        [KeyboardButton("↩️ Головне меню")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    context.user_data["previous_menu"] = "limit_details"
+    await update.message.reply_text(
+        "🛠️ Що бажаєте зробити з лімітом?",
+        reply_markup=reply_markup
+    )
+
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
 
@@ -224,7 +303,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("awaiting_profit_sum"):
         if text == "↩️ Головне меню":
             context.user_data["awaiting_profit_sum"] = False
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
         try:
             profit = float(text)
@@ -238,7 +317,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Якщо користувач натиснув "↩️ Головне меню" у будь-якому місці
     if text == "↩️ Головне меню":
-        await show_main_menu(update)
+        await show_main_menu(update, context)
         return
 
     if text == "✅ Підтвердити":
@@ -278,7 +357,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await update.message.reply_text(result_message)
         context.user_data.clear()
-        await show_main_menu(update)
+        await show_main_menu(update, context)
         return
 
     if text == "✏️ Змінити суму":
@@ -318,10 +397,78 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=reply_markup
             )
             context.user_data["awaiting_period_input"] = True
+
+        elif previous_menu == "expense_statistics_period":
+            # Повертаємось до вибору періоду витрат
+            keyboard = [
+                [KeyboardButton("за весь період"), KeyboardButton("за рік")],
+                [KeyboardButton("за місяць"), KeyboardButton("за тиждень")],
+                [KeyboardButton("за сьогодні"), KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text(
+                "🗓️ Оберіть період або введіть його самостійно у форматі dd/mm/yyyy:dd/mm/yyyy",
+                reply_markup=reply_markup
+            )
+            context.user_data["awaiting_expense_period_input"] = True
+
+        elif previous_menu == "graphs_menu_expense":
+            # Повернення до меню з вибором "за усіма категоріями" чи "обрати категорію"
+            keyboard = [
+                [KeyboardButton("За усіма категоріями")],
+                [KeyboardButton("Обрати категорію")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "expense_statistics_period"
+
+        elif previous_menu == "choose_expense_category":
+            # Повертаємося до меню "за усіма категоріями / обрати категорію"
+            keyboard = [
+                [KeyboardButton("За усіма категоріями")],
+                [KeyboardButton("Обрати категорію")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "expense_statistics_period"
+            return
+
+        elif previous_menu == "graphs_menu_choose_category":
+            # Повертаємося до меню вибору категорії
+            categories = ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                          "Категорія 7", "Не вказувати"]
+            keyboard = [[KeyboardButton(cat)] for cat in categories]
+            keyboard.append([KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")])
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🗂️ Оберіть категорію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "choose_expense_category"
+            return
+
+        elif previous_menu == "user_limits_menu":
+            keyboard = [
+                [KeyboardButton("Мої ліміти")],
+                [KeyboardButton("Новий ліміт")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔙 Меню лімітів:", reply_markup=reply_markup)
+
+        elif previous_menu == "limits_menu":
+            await show_limits_menu(update, context)
+            context.user_data["previous_menu"] = "main_menu"
+            return
+
+        elif previous_menu == "limit_details":
+            await show_user_limits_menu(update, context)
+            context.user_data["previous_menu"] = "limits_menu"
             return
 
         else:
-            await show_main_menu(update)
+            await show_main_menu(update, context)
         return
 
     ## дата
@@ -427,7 +574,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("awaiting_expense_sum"):
         if text == "↩️ Головне меню":
             context.user_data["awaiting_expense_sum"] = False
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
 
         # Валідація: число > 0 і, наприклад, < 100000
@@ -581,7 +728,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("awaiting_period_input"):
         if text == "↩️ Головне меню":
             context.user_data["awaiting_period_input"] = False
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
 
         # Обробка вибору "За рік", "За місяць", "За тиждень", "За сьогодні"
@@ -676,7 +823,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["previous_menu"] = "profit_statistics_period"
             return
         elif text == "↩️ Головне меню":
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
         else:
             await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
@@ -686,7 +833,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📈 Підсумкова статистика: (сюди пізніше підключається SQL)")
 
         # ✅ Після цього повертаємо користувача у головне меню
-        await show_main_menu(update)
+        await show_main_menu(update, context)
         return
 
     # ➡️ Обробка кнопки "Обрати джерело"
@@ -738,7 +885,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["previous_menu"] = "profit_statistics_period"
             return
         elif text == "↩️ Головне меню":
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
         else:
             await update.message.reply_text("❌ Будь ласка, оберіть джерело зі списку!")
@@ -771,7 +918,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["previous_menu"] = "choose_source"
             return
         elif text == "↩️ Головне меню":
-            await show_main_menu(update)
+            await show_main_menu(update, context)
             return
         else:
             await update.message.reply_text("❌ Будь ласка, оберіть графік зі списку!")
@@ -781,8 +928,352 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📈 Підсумкова статистика: (сюди пізніше підключається SQL)")
 
         # ✅ Повертаємо користувача у головне меню
-        await show_main_menu(update)
+        await show_main_menu(update, context)
         return
+
+    if text == "📉 Статистика витрат":
+        keyboard = [
+            [KeyboardButton("за весь період"), KeyboardButton("за рік")],
+            [KeyboardButton("за місяць"), KeyboardButton("за тиждень")],
+            [KeyboardButton("за сьогодні"), KeyboardButton("↩️ Головне меню")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(
+            "🗓️ Оберіть період або введіть його самостійно у форматі dd/mm/yyyy:dd/mm/yyyy",
+            reply_markup=reply_markup
+        )
+        context.user_data["awaiting_expense_period_input"] = True
+        context.user_data["previous_menu"] = "expense_period_selection"
+        return
+
+    if context.user_data.get("awaiting_expense_period_input"):
+        if text == "↩️ Повернутися":
+            # Повернення до вибору періоду (цей блок, а не головне меню!)
+            keyboard = [
+                [KeyboardButton("за весь період"), KeyboardButton("за рік")],
+                [KeyboardButton("за місяць"), KeyboardButton("за тиждень")],
+                [KeyboardButton("за сьогодні"), KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text(
+                "🗓️ Оберіть період або введіть його самостійно у форматі dd/mm/yyyy:dd/mm/yyyy",
+                reply_markup=reply_markup
+            )
+            return
+
+        if text == "↩️ Головне меню":
+            context.user_data["awaiting_expense_period_input"] = False
+            await show_main_menu(update, context)
+            return
+
+        now = datetime.now()
+        recognized = False
+
+        if text.lower() == "за рік":
+            start_date = (now - timedelta(days=365)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📉 Статистика витрат за рік (з {start_date} по {end_date})")
+            recognized = True
+        elif text.lower() == "за місяць":
+            start_date = (now - timedelta(days=30)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📉 Статистика витрат за місяць (з {start_date} по {end_date})")
+            recognized = True
+        elif text.lower() == "за тиждень":
+            start_date = (now - timedelta(days=7)).strftime("%d/%m/%Y")
+            end_date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📉 Статистика витрат за тиждень (з {start_date} по {end_date})")
+            recognized = True
+        elif text.lower() == "за сьогодні":
+            date = now.strftime("%d/%m/%Y")
+            await update.message.reply_text(f"📉 Статистика витрат за сьогодні: {date}")
+            recognized = True
+        elif text.lower() == "за весь період":
+            await update.message.reply_text("📉 Статистика витрат за весь період")
+            recognized = True
+        elif ":" in text:  # Введено власний період
+            try:
+                start_str, end_str = text.split(":")
+                start_date = datetime.strptime(start_str.strip(), "%d/%m/%Y")
+                end_date = datetime.strptime(end_str.strip(), "%d/%m/%Y")
+                if start_date > end_date:
+                    await update.message.reply_text("❌ Початкова дата не може бути пізнішою за кінцеву!")
+                    return
+                await update.message.reply_text(f"📉 Статистика витрат за період: {start_str} — {end_str}")
+                recognized = True
+            except ValueError:
+                await update.message.reply_text("❌ Неправильний формат! Введіть у форматі dd/mm/yyyy:dd/mm/yyyy")
+                return
+
+        if recognized:
+            # Після успішного вибору/введення періоду – показуємо наступне меню
+            keyboard = [
+                [KeyboardButton("За усіма категоріями")],
+                [KeyboardButton("Обрати категорію")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+
+            context.user_data["previous_menu"] = "expense_statistics_period"
+            context.user_data["awaiting_expense_period_input"] = False
+        else:
+            await update.message.reply_text(
+                "❌ Будь ласка, оберіть варіант зі списку або введіть період у форматі dd/mm/yyyy:dd/mm/yyyy")
+        return
+
+    if text == "📉 Статистика витрат": ## не знайшов кращого варіанту пофіксити баг з цією кнопкою
+        keyboard = [
+            [KeyboardButton("за весь період"), KeyboardButton("за рік")],
+            [KeyboardButton("за місяць"), KeyboardButton("за тиждень")],
+            [KeyboardButton("за сьогодні"), KeyboardButton("↩️ Головне меню")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text(
+            "🗓️ Оберіть період або введіть його самостійно у форматі dd/mm/yyyy:dd/mm/yyyy",
+            reply_markup=reply_markup
+        )
+        context.user_data["awaiting_expense_period_input"] = True
+        context.user_data["previous_menu"] = "expense_period_selection"
+        return
+
+    if text == "За усіма категоріями":
+        # Під прапорець для подальшої обробки графіків
+        context.user_data["expense_graph_all_categories"] = True
+
+        # Показуємо кнопки графіків
+        keyboard = [
+            [KeyboardButton("Pie Chart")],
+            [KeyboardButton("Bars")],
+            [KeyboardButton("Scatter Plot")],
+            [KeyboardButton("↩️ Повернутися")],
+            [KeyboardButton("↩️ Головне меню")]
+        ]
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("📊 Оберіть графік для відображення:", reply_markup=reply_markup)
+
+        # Зберігаємо попереднє меню для кнопки "↩️ Повернутися"
+        context.user_data["previous_menu"] = "graphs_menu_expense"
+        return
+
+    if context.user_data.get("previous_menu") == "graphs_menu_expense" and context.user_data.get(
+            "expense_graph_all_categories"):
+        if text == "Pie Chart":
+            # Місце для SQL-запиту (отримати дані за всіма категоріями і побудувати графік Pie Chart)
+            await update.message.reply_text("✅ Ви обрали графік: Pie Chart")
+            await update.message.reply_text("📊 Графік Pie Chart готовий! (сюди підключається SQL-запит)")
+        elif text == "Bars":
+            # Місце для SQL-запиту (отримати дані за всіма категоріями і побудувати графік Bars)
+            await update.message.reply_text("✅ Ви обрали графік: Bars")
+            await update.message.reply_text("📊 Графік Bars готовий! (сюди підключається SQL-запит)")
+        elif text == "Scatter Plot":
+            # Місце для SQL-запиту (отримати дані за всіма категоріями і побудувати графік Scatter Plot)
+            await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
+            await update.message.reply_text("📊 Графік Scatter Plot готовий! (сюди підключається SQL-запит)")
+        elif text == "↩️ Повернутися":
+            # Повертаємося до меню вибору опцій статистики витрат
+            keyboard = [
+                [KeyboardButton("За усіма категоріями")],
+                [KeyboardButton("Обрати категорію")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "expense_statistics_period"
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
+            return
+
+        # ✅ Після відображення графіка — повертаємо користувача у головне меню
+        await update.message.reply_text("🔄 Повертаємося у головне меню...")
+        await show_main_menu(update, context)
+        return
+
+    if text == "Обрати категорію":
+        # 🟡 Тут буде SQL-запит №3 (отримати категорії)
+        categories = ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                      "Категорія 7", "Не вказувати"]
+
+        keyboard = [[KeyboardButton(cat)] for cat in categories]
+        keyboard.append([KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")])
+
+        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+        await update.message.reply_text("🗂️ Оберіть категорію:", reply_markup=reply_markup)
+
+        # Встановлюємо прапорець-індикатор
+        context.user_data["previous_menu"] = "choose_expense_category"
+        return
+
+    if context.user_data.get("previous_menu") == "choose_expense_category":
+        if text in ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                    "Категорія 7", "Не вказувати"]:
+            await update.message.reply_text(f"✅ Категорія обрана: {text}")
+            context.user_data["selected_expense_category"] = text
+            # 🟡 Місце для SQL-запиту №11 (обробка записів по категорії)
+
+            keyboard = [
+                [KeyboardButton("Pie Chart")],
+                [KeyboardButton("Bars")],
+                [KeyboardButton("Scatter Plot")],
+                [KeyboardButton("Обрати підкатегорію")],
+                [KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("📊 Оберіть графік або підкатегорію:", reply_markup=reply_markup)
+
+            context.user_data["previous_menu"] = "graphs_menu_choose_category"
+            return
+
+        elif text == "↩️ Повернутися":
+            keyboard = [
+                [KeyboardButton("За усіма категоріями")],
+                [KeyboardButton("Обрати категорію")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🔍 Оберіть опцію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "expense_statistics_period"
+            return
+
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть категорію зі списку!")
+            return
+
+    # Вибір підкатегорії
+    if context.user_data.get("previous_menu") == "choose_expense_subcategory":
+        if text in ["Підкатегорія 1", "Підкатегорія 2", "Підкатегорія 3", "Підкатегорія 4", "Підкатегорія 5",
+                    "Підкатегорія 6", "Підкатегорія 7", "Не вказано"]:
+            await update.message.reply_text(f"✅ Підкатегорія обрана: {text}")
+            context.user_data["selected_subcategory"] = text
+            # 🔴 Тут буде SQL-запит №4 (завантажити дані для статистики підкатегорії)
+
+            # Переходимо до вибору графіків (без Pie Chart)
+            keyboard = [
+                [KeyboardButton("Bars")],
+                [KeyboardButton("Scatter Plot")],
+                [KeyboardButton("↩️ Повернутися")],
+                [KeyboardButton("↩️ Головне меню")]
+            ]
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("📊 Оберіть графік для перегляду:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "graphs_menu_expense_subcategory"
+            return
+        elif text == "↩️ Повернутися":
+            await show_expense_subcategories_menu(update, context)  # або меню категорій
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть підкатегорію зі списку!")
+            return
+
+    # Обробка меню графіків або підкатегорії після вибору категорії
+    if context.user_data.get("previous_menu") == "graphs_menu_choose_category":
+        if text == "Pie Chart":
+            await update.message.reply_text("✅ Ви обрали графік: Pie Chart")
+            await update.message.reply_text("📊 Графік Pie Chart готовий! (сюди підключається SQL-запит)")
+            await show_main_menu(update, context)
+            return
+        elif text == "Bars":
+            await update.message.reply_text("✅ Ви обрали графік: Bars")
+            await update.message.reply_text("📊 Графік Bars готовий! (сюди підключається SQL-запит)")
+            await show_main_menu(update, context)
+            return
+        elif text == "Scatter Plot":
+            await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
+            await update.message.reply_text("📊 Графік Scatter Plot готовий! (сюди підключається SQL-запит)")
+            await show_main_menu(update, context)
+            return
+        elif text == "Обрати підкатегорію":
+            await show_expense_subcategories_menu(update, context)
+            return
+        elif text == "↩️ Повернутися":
+            # Повертаємось до вибору категорії
+            categories = ["Категорія 1", "Категорія 2", "Категорія 3", "Категорія 4", "Категорія 5", "Категорія 6",
+                          "Категорія 7", "Не вказувати"]
+            keyboard = [[KeyboardButton(cat)] for cat in categories]
+            keyboard.append([KeyboardButton("↩️ Повернутися"), KeyboardButton("↩️ Головне меню")])
+            reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+            await update.message.reply_text("🗂️ Оберіть категорію:", reply_markup=reply_markup)
+            context.user_data["previous_menu"] = "choose_expense_category"
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть варіант зі списку!")
+            return
+
+
+    if context.user_data.get("previous_menu") == "graphs_menu_expense_subcategory":
+        if text == "Bars":
+            await update.message.reply_text("✅ Ви обрали графік: Bars")
+            await update.message.reply_text("📊 Графік Bars готовий! (сюди підключається SQL-запит)")
+            await show_main_menu(update, context)
+            return
+        elif text == "Scatter Plot":
+            await update.message.reply_text("✅ Ви обрали графік: Scatter Plot")
+            await update.message.reply_text("📊 Графік Scatter Plot готовий! (сюди підключається SQL-запит)")
+            await show_main_menu(update, context)
+            return
+        elif text == "↩️ Повернутися":
+            await show_expense_subcategories_menu(update, context)
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ Будь ласка, оберіть графік зі списку!")
+            return
+
+    if text == "Мої ліміти":
+        await show_user_limits_menu(update, context)
+        return
+
+    if text == "🔢 Ліміти":
+        await show_limits_menu(update, context)
+        context.user_data["previous_menu"] = "main_menu"
+        return
+
+    if context.user_data.get("previous_menu") == "limits_menu":
+        if text in ["Ліміт 1", "Ліміт 2", "Ліміт 3"]:
+            await show_limit_details(update, context, text)
+            context.user_data["selected_limit"] = text
+            return
+        elif text == "↩️ Повернутися":
+            await show_limits_menu(update, context)
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
+
+    if context.user_data.get("previous_menu") == "limit_details":
+        if text == "❌ Видалити":
+            # 🔴 ПІД SQL: видалити ліміт з БД за назвою context.user_data["selected_limit"]
+            # delete_limit(context.user_data["selected_limit"])
+            await update.message.reply_text(
+                "✅ Ліміт успішно видалено. Ви можете створити його знову за допомогою опції 'Новий ліміт'"
+            )
+            await show_limits_menu(update, context)
+            return
+        elif text == "↩️ Повернутися":
+            await show_user_limits_menu(update, context)
+            return
+        elif text == "↩️ Головне меню":
+            await show_main_menu(update, context)
+            return
 
 
 # ➡️ Обробка помилок
